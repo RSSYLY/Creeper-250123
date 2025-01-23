@@ -10,39 +10,24 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
 
-query_params = {
-    "appid": "1",
-    "ck": "x",
-    "colgroup": "1963,2048,2234,2235,2236,2237,2238,2318",
-    "od": "1",
-    "pagemode": "result",
-    "pg": "10",
-    "pos": "title,content",
-    "q": "长城遗址",
-    "qq": "",
-    "style": "3",
-    "tmp_od": "0",
-    "x": "55",
-    "y": "11",
-    "p": 1
-}
-
-
-def get_page(url, params):
-    try:
-        response = requests.get(url, headers=HEADERS, params=params)
-        response.raise_for_status()
-        return response.text
-    except requests.exceptions.RequestException as e:
-        print(f"请求失败: {e}")
-        return None
-
+def get_page(url, params, interval,max_retries):
+    for attempt in range(max_retries + 1):  # 包含初始请求的总尝试次数
+        try:
+            response = requests.get(url, headers=HEADERS, params=params)
+            response.raise_for_status()
+            return response.text
+        except requests.exceptions.RequestException as e:
+            print(f"请求失败，第{attempt + 1}次尝试: {e}")
+            if attempt < max_retries:
+                print(f"将在 {max_retries - attempt} 次后重试...")
+                time.sleep(interval)  # 添加重试间隔，避免频繁请求
+    print(f"已达到最大重试次数（{max_retries}次），放弃请求")
+    return None
 
 def should_stop(html):
     soup = BeautifulSoup(html, "lxml")
     stop_element = soup.select_one("td.js-result > div > p:nth-child(1)")
     return stop_element and STOP_TEXT in stop_element.get_text()
-
 
 def extract_links(html):
     soup = BeautifulSoup(html, 'lxml')
@@ -83,15 +68,32 @@ def extract_links(html):
             links.append(a['href'])
     return links
 
-
-def get_all_links():
+def get_all_links(search_keyword, interval=5, max_retries=3):
     all_links = []
     current_page = 1
 
+    # 构造本地请求参数
+    local_params = {
+        "appid": "1",
+        "ck": "x",
+        "colgroup": "1963,2048,2234,2235,2236,2237,2238,2318",
+        "od": "1",
+        "pagemode": "result",
+        "pg": "10",
+        "pos": "title,content",
+        "q": search_keyword,
+        "qq": "",
+        "style": "3",
+        "tmp_od": "0",
+        "x": "55",
+        "y": "11",
+        "p": current_page
+    }
+
     while True:
-        query_params["p"] = current_page
-        html = get_page(BASE_URL, params=query_params)
-        print(f"请求第 {current_page} 页: {BASE_URL}?{urlencode(query_params)}")
+        local_params["p"] = current_page
+        html = get_page(BASE_URL, params=local_params,interval=interval, max_retries=max_retries)
+        print(f"请求第 {current_page} 页: {BASE_URL}?{urlencode(local_params)}")
 
         if not html:
             break
@@ -107,13 +109,13 @@ def get_all_links():
 
         all_links.extend(page_links)
         current_page += 1
-        time.sleep(2)
+        time.sleep(interval)
 
     return all_links
 
-
 if __name__ == "__main__":
-    result_links = get_all_links()
+    # 示例用法：传递搜索关键词、间隔和最大重试次数
+    result_links = get_all_links("隋大兴唐长安城", interval=1, max_retries=5)
     print("\n所有提取的链接：")
     print(result_links)
     print(f"总共提取到 {len(result_links)} 条链接")

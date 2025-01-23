@@ -5,12 +5,13 @@ import time
 from get_target_text import InfoExtractor  # 替换为实际模块路径
 
 # 配置参数
-REQUEST_INTERVAL = 1  # 请求间隔(秒)
-MAX_RETRIES = 3  # 单条数据最大重试次数
+QUERY_WORDS = "长城"  # 搜索关键词
+REQUEST_INTERVAL = 0.1  # 请求间隔(秒)
+MAX_RETRIES = 5  # 单条数据最大重试次数
 
 
 def export_to_csv():
-    urls = get_all_links()
+    urls = get_all_links(QUERY_WORDS, REQUEST_INTERVAL, MAX_RETRIES)
     total = len(urls)
     # 打印
     print(f"共获取到 {total} 条链接，开始获取每条链接内容")
